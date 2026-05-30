@@ -1,5 +1,6 @@
 # 🇲🇦 Morocco Energy Map
 link = https://chhaib22.github.io/Morocco-Energy-Map/
+
 Application web interactive visualisant les **ressources énergétiques renouvelables**
 des 12 régions du Maroc, sous forme de **carte choroplèthe** (Leaflet.js).
 
