@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morocco Energy Map — Carte des énergies renouvelables</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --navbar-bg: #0f172a;
+    --navbar-bg-2: #1e293b;
+    --accent: #38bdf8;
+    --card-bg: rgba(255, 255, 255, 0.96);
+    --text-dark: #0f172a;
+    --text-muted: #64748b;
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+    background: #0f172a;
+  }
+
+  /* ===== Navbar ===== */
+  #navbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 64px;
+    background: linear-gradient(90deg, var(--navbar-bg), var(--navbar-bg-2));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 22px;
+    z-index: 1000;
+    box-shadow: 0 2px 14px rgba(0,0,0,0.35);
+    gap: 12px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #fff;
+    min-width: 0;
+  }
+  .brand .logo {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #fbbf24, #22c55e, #38bdf8);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: #0f172a;
+    flex-shrink: 0;
+  }
+  .brand h1 {
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    white-space: nowrap;
+  }
+  .brand p {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  /* ===== Toggle buttons ===== */
+  .layer-toggles {
+    display: flex;
+    gap: 8px;
+    background: rgba(255,255,255,0.06);
+    padding: 6px;
+    border-radius: 12px;
+  }
+  .toggle-btn {
+    border: none;
+    background: transparent;
+    color: #cbd5e1;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .toggle-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .toggle-btn .ic { font-size: 1rem; }
+  .toggle-btn.active.solar   { background: linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; box-shadow: 0 4px 14px rgba(239,68,68,0.4); }
+  .toggle-btn.active.wind    { background: linear-gradient(135deg,#3b82f6,#1e3a8a); color:#fff; box-shadow: 0 4px 14px rgba(59,130,246,0.4); }
+  .toggle-btn.active.biomass { background: linear-gradient(135deg,#84cc16,#166534); color:#fff; box-shadow: 0 4px 14px rgba(132,204,22,0.4); }
+
+  /* ===== Map ===== */
+  #map {
+    position: absolute;
+    top: 64px; bottom: 0; left: 0; right: 0;
+    z-index: 1;
+    background: #0b1220;
+  }
+
+  /* ===== Legend (bottom-left) ===== */
+  #legend {
+    position: absolute;
+    bottom: 24px;
+    left: 16px;
+    z-index: 1000;
+    background: var(--card-bg);
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    width: 230px;
+    backdrop-filter: blur(6px);
+  }
+  #legend h3 {
+    font-size: 0.82rem;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  #legend .unit {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+  .legend-scale { display: flex; flex-direction: column; gap: 6px; }
+  .legend-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.76rem; color: #334155; font-weight: 500;
+  }
+  .legend-swatch {
+    width: 26px; height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  /* ===== Info card (bottom-right) ===== */
+  #info-card {
+    position: absolute;
+    bottom: 24px;
+    right: 16px;
+    z-index: 1000;
+    background: var(--card-bg);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    width: 270px;
+    backdrop-filter: blur(6px);
+  }
+  #info-card .card-head {
+    display: flex; align-items: center; gap: 9px;
+    margin-bottom: 4px;
+  }
+  #info-card .card-head i { color: var(--accent); }
+  #info-card h2 {
+    font-size: 1.02rem;
+    color: var(--text-dark);
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  #info-card .placeholder {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-top: 6px;
+  }
+  .metric-list { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .metric {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .metric .m-icon {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+  .metric.solar   .m-icon { background: linear-gradient(135deg,#f59e0b,#ef4444); }
+  .metric.wind    .m-icon { background: linear-gradient(135deg,#3b82f6,#1e3a8a); }
+  .metric.biomass .m-icon { background: linear-gradient(135deg,#84cc16,#166534); }
+  .metric .m-text { flex: 1; }
+  .metric .m-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+  .metric .m-value { font-size: 1.05rem; color: var(--text-dark); font-weight: 700; }
+  .metric .m-value span { font-size: 0.7rem; font-weight: 500; color: var(--text-muted); }
+  .metric.active-layer { background: #f1f5f9; border-radius: 9px; padding: 6px; margin: -6px; }
+
+  /* ===== Leaflet overrides ===== */
+  .region-tooltip {
+    background: #0f172a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 11px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  }
+  .region-tooltip::before { border-top-color: #0f172a !important; }
+  .leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+  .leaflet-popup-content { margin: 14px 16px; font-family: 'Inter', sans-serif; }
+  .popup-title {
+    font-size: 0.98rem; font-weight: 700; color: var(--text-dark);
+    margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+  }
+  .popup-row {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.82rem; padding: 3px 0; gap: 18px;
+  }
+  .popup-row .lab { color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .popup-row .val { font-weight: 700; color: var(--text-dark); }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 768px) {
+    #navbar { height: auto; flex-direction: column; align-items: stretch; padding: 10px 14px; gap: 10px; }
+    .brand p { display: none; }
+    .brand h1 { font-size: 1rem; }
+    .layer-toggles { justify-content: center; }
+    .toggle-btn { padding: 8px 12px; font-size: 0.8rem; }
+    .toggle-btn .txt { display: none; }
+    .toggle-btn .ic { font-size: 1.15rem; }
+    #map { top: 116px; }
+    #legend { width: 175px; padding: 12px; bottom: 14px; left: 10px; }
+    #info-card { width: 200px; padding: 13px; bottom: 14px; right: 10px; }
+    #info-card .metric .m-value { font-size: 0.92rem; }
+  }
+  @media (max-width: 420px) {
+    #info-card { display: none; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ===== Top navbar ===== -->
+  <header id="navbar">
+    <div class="brand">
+      <div class="logo"><i class="fas fa-bolt"></i></div>
+      <div>
+        <h1>Morocco Energy Map</h1>
+        <p>Ressources énergétiques renouvelables par région</p>
+      </div>
+    </div>
+    <nav class="layer-toggles" id="layer-toggles" aria-label="Sélection de la couche énergétique">
+      <button class="toggle-btn solar active" data-layer="solar" aria-pressed="true">
+        <span class="ic">☀️</span><span class="txt">Solaire</span>
+      </button>
+      <button class="toggle-btn wind" data-layer="wind" aria-pressed="false">
+        <span class="ic">💨</span><span class="txt">Éolien</span>
+      </button>
+      <button class="toggle-btn biomass" data-layer="biomass" aria-pressed="false">
+        <span class="ic">🌿</span><span class="txt">Biomasse</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- ===== Map ===== -->
+  <main id="map" aria-label="Carte interactive du Maroc"></main>
+
+  <!-- ===== Legend ===== -->
+  <aside id="legend" aria-live="polite">
+    <h3 id="legend-title"><span id="legend-icon">☀️</span> <span id="legend-name">Irradiation solaire</span></h3>
+    <div class="unit" id="legend-unit">kWh/m²/jour</div>
+    <div class="legend-scale" id="legend-scale"></div>
+  </aside>
+
+  <!-- ===== Info card ===== -->
+  <aside id="info-card">
+    <div class="card-head">
+      <i class="fas fa-circle-info"></i>
+      <h2 id="info-title">Détails de la région</h2>
+    </div>
+    <p class="placeholder" id="info-placeholder">
+      Cliquez sur une région de la carte pour afficher ses données énergétiques détaillées.
+    </p>
+    <div class="metric-list" id="info-metrics" style="display:none;"></div>
+  </aside>
+
+  <!-- Leaflet JS -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+  /* =========================================================
+     DATA — Energy values per region (static, approximate)
+  ========================================================= */
+  const ENERGY = {
+    "Souss-Massa":                  { solar: 6.2, wind: 7.1, biomass: 1.2 },
+    "Guelmim-Oued Noun":            { solar: 6.5, wind: 6.8, biomass: 0.6 },
+    "Laâyoune-Sakia El Hamra":      { solar: 6.8, wind: 8.2, biomass: 0.3 },
+    "Dakhla-Oued Ed-Dahab":         { solar: 6.9, wind: 9.1, biomass: 0.2 },
+    "Marrakech-Safi":               { solar: 5.9, wind: 5.5, biomass: 1.8 },
+    "Béni Mellal-Khénifra":         { solar: 5.4, wind: 4.2, biomass: 2.4 },
+    "Casablanca-Settat":            { solar: 5.1, wind: 5.8, biomass: 3.1 },
+    "Rabat-Salé-Kénitra":           { solar: 5.0, wind: 5.3, biomass: 2.8 },
+    "Tanger-Tétouan-Al Hoceïma":    { solar: 4.8, wind: 7.4, biomass: 1.9 },
+    "L'Oriental":                   { solar: 5.6, wind: 6.1, biomass: 1.4 },
+    "Fès-Meknès":                   { solar: 5.2, wind: 4.5, biomass: 2.2 },
+    "Drâa-Tafilalet":               { solar: 6.4, wind: 5.9, biomass: 0.8 }
+  };
+
+  /* Arabic official names (displayed under the French name) */
+  const ARABIC = {
+    "Souss-Massa": "سوس ماسة",
+    "Guelmim-Oued Noun": "كلميم واد نون",
+    "Laâyoune-Sakia El Hamra": "العيون الساقية الحمراء",
+    "Dakhla-Oued Ed-Dahab": "الداخلة وادي الذهب",
+    "Marrakech-Safi": "مراكش آسفي",
+    "Béni Mellal-Khénifra": "بني ملال خنيفرة",
+    "Casablanca-Settat": "الدار البيضاء سطات",
+    "Rabat-Salé-Kénitra": "الرباط سلا القنيطرة",
+    "Tanger-Tétouan-Al Hoceïma": "طنجة تطوان الحسيمة",
+    "L'Oriental": "الجهة الشرقية",
+    "Fès-Meknès": "فاس مكناس",
+    "Drâa-Tafilalet": "درعة تافيلالت"
+  };
+
+  /* =========================================================
+     LAYER CONFIGURATION
+  ========================================================= */
+  const LAYERS = {
+    solar: {
+      name: "Irradiation solaire",
+      icon: "☀️",
+      unit: "kWh/m²/jour",
+      // yellow -> orange -> red, thresholds (kWh/m²/day)
+      grades: [4.5, 5.0, 5.5, 6.0, 6.5, 7.0],
+      colors: ["#fef9c3", "#fde047", "#fbbf24", "#f97316", "#ef4444", "#b91c1c"]
+    },
+    wind: {
+      name: "Vitesse du vent",
+      icon: "💨",
+      unit: "m/s",
+      // light blue -> blue -> dark blue
+      grades: [4, 5, 6, 7, 8, 9],
+      colors: ["#dbeafe", "#93c5fd", "#60a5fa", "#3b82f6", "#1d4ed8", "#1e3a8a"]
+    },
+    biomass: {
+      name: "Potentiel biomasse",
+      icon: "🌿",
+      unit: "TWh/an",
+      // light green -> dark green
+      grades: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
+      colors: ["#dcfce7", "#bbf7d0", "#86efac", "#4ade80", "#22c55e", "#15803d"]
+    }
+  };
+
+  let currentLayer = "solar";
+
+  /* Return color for a value on a given layer */
+  function getColor(value, layerKey) {
+    const L = LAYERS[layerKey];
+    const g = L.grades, c = L.colors;
+    if (value >= g[5]) return c[5];
+    if (value >= g[4]) return c[4];
+    if (value >= g[3]) return c[3];
+    if (value >= g[2]) return c[2];
+    if (value >= g[1]) return c[1];
+    return c[0];
+  }
+
+  /* =========================================================
+     INITIALISE MAP
+  ========================================================= */
+  const map = L.map('map', {
+    center: [31.5, -7],
+    zoom: 6,
+    minZoom: 5,
+    maxZoom: 10,
+    zoomControl: true,
+    attributionControl: true
+  });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO | Données énergétiques approximatives',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  /* =========================================================
+     GEOJSON — simplified region polygons (approximate)
+  ========================================================= */
+  // Coordinates given as [lng, lat]; values are approximate boundary outlines.
+  const REGIONS_GEOJSON = {
+    "type": "FeatureCollection",
+    "features": [
+      { "type":"Feature","properties":{"name":"Tanger-Tétouan-Al Hoceïma"},
+        "geometry":{"type":"Polygon","coordinates":[[[-6.05,35.92],[-5.0,35.6],[-3.9,35.4],[-3.7,34.85],[-4.6,34.6],[-5.6,34.7],[-6.05,34.95],[-6.3,35.4],[-6.05,35.92]]]}},
+
+      { "type":"Feature","properties":{"name":"L'Oriental"},
+        "geometry":{"type":"Polygon","coordinates":[[[-3.7,34.85],[-1.8,35.1],[-1.05,34.6],[-1.2,33.4],[-2.0,32.4],[-3.1,32.1],[-3.6,32.9],[-3.9,33.6],[-3.6,34.2],[-3.7,34.85]]]}},
+
+      { "type":"Feature","properties":{"name":"Fès-Meknès"},
+        "geometry":{"type":"Polygon","coordinates":[[[-5.6,34.7],[-4.6,34.6],[-3.9,33.6],[-3.9,33.0],[-4.6,32.85],[-5.4,33.3],[-5.9,33.9],[-5.6,34.7]]]}},
+
+      { "type":"Feature","properties":{"name":"Rabat-Salé-Kénitra"},
+        "geometry":{"type":"Polygon","coordinates":[[[-6.85,34.55],[-6.05,34.95],[-5.6,34.7],[-5.9,33.9],[-5.85,33.55],[-6.55,33.6],[-7.0,34.0],[-6.85,34.55]]]}},
+
+      { "type":"Feature","properties":{"name":"Béni Mellal-Khénifra"},
+        "geometry":{"type":"Polygon","coordinates":[[[-5.85,33.55],[-5.9,33.9],[-5.4,33.3],[-4.6,32.85],[-4.9,32.2],[-5.7,32.1],[-6.4,32.65],[-6.4,33.2],[-5.85,33.55]]]}},
+
+      { "type":"Feature","properties":{"name":"Casablanca-Settat"},
+        "geometry":{"type":"Polygon","coordinates":[[[-7.7,33.85],[-7.0,34.0],[-6.55,33.6],[-6.4,33.2],[-6.4,32.65],[-7.3,32.4],[-8.4,32.55],[-8.75,33.2],[-7.7,33.85]]]}},
+
+      { "type":"Feature","properties":{"name":"Marrakech-Safi"},
+        "geometry":{"type":"Polygon","coordinates":[[[-9.25,32.3],[-8.75,33.2],[-8.4,32.55],[-7.3,32.4],[-7.0,31.6],[-7.4,30.95],[-8.4,31.0],[-9.3,31.4],[-9.7,31.9],[-9.25,32.3]]]}},
+
+      { "type":"Feature","properties":{"name":"Drâa-Tafilalet"},
+        "geometry":{"type":"Polygon","coordinates":[[[-7.0,31.6],[-7.3,32.4],[-6.4,32.65],[-5.7,32.1],[-4.9,32.2],[-4.0,31.5],[-4.2,30.6],[-5.3,30.2],[-6.4,30.6],[-7.0,31.6]]]}},
+
+      { "type":"Feature","properties":{"name":"Souss-Massa"},
+        "geometry":{"type":"Polygon","coordinates":[[[-9.7,31.9],[-9.3,31.4],[-8.4,31.0],[-7.4,30.95],[-6.4,30.6],[-7.0,29.6],[-8.2,29.4],[-9.7,30.2],[-10.0,31.0],[-9.7,31.9]]]}},
+
+      { "type":"Feature","properties":{"name":"Guelmim-Oued Noun"},
+        "geometry":{"type":"Polygon","coordinates":[[[-10.0,29.4],[-9.7,30.2],[-8.2,29.4],[-7.0,29.6],[-7.6,28.7],[-8.7,28.0],[-10.3,28.7],[-10.0,29.4]]]}},
+
+      { "type":"Feature","properties":{"name":"Laâyoune-Sakia El Hamra"},
+        "geometry":{"type":"Polygon","coordinates":[[[-10.3,28.7],[-8.7,28.0],[-7.6,28.7],[-8.7,26.0],[-12.0,26.0],[-13.2,27.7],[-11.4,28.0],[-10.3,28.7]]]}},
+
+      { "type":"Feature","properties":{"name":"Dakhla-Oued Ed-Dahab"},
+        "geometry":{"type":"Polygon","coordinates":[[[-8.7,26.0],[-12.0,26.0],[-13.2,27.7],[-15.95,23.6],[-15.2,21.4],[-13.0,21.4],[-12.0,23.0],[-8.7,26.0]]]}}
+    ]
+  };
+
+  /* =========================================================
+     RENDER GEOJSON
+  ========================================================= */
+  let geoLayer;
+  let selectedName = null;
+
+  function styleFeature(feature) {
+    const name = feature.properties.name;
+    const value = ENERGY[name][currentLayer];
+    return {
+      fillColor: getColor(value, currentLayer),
+      weight: 1.2,
+      opacity: 1,
+      color: "#0f172a",
+      fillOpacity: 0.82
+    };
+  }
+
+  function highlightFeature(e) {
+    const layer = e.target;
+    layer.setStyle({ weight: 3, color: "#fff", fillOpacity: 0.95 });
+    layer.bringToFront();
+    const name = layer.feature.properties.name;
+    const value = ENERGY[name][currentLayer];
+    const L = LAYERS[currentLayer];
+    layer.bindTooltip(
+      `<strong>${name}</strong><br>${L.icon} ${value} ${L.unit}`,
+      { className: "region-tooltip", sticky: true, direction: "top", offset: [0,-4] }
+    ).openTooltip();
+  }
+
+  function resetHighlight(e) {
+    geoLayer.resetStyle(e.target);
+    e.target.closeTooltip();
+  }
+
+  function buildPopup(name) {
+    const d = ENERGY[name];
+    const ar = ARABIC[name] || "";
+    return `
+      <div class="popup-title">📍 ${name}</div>
+      <div style="font-size:0.78rem;color:#64748b;margin:-6px 0 10px;">${ar}</div>
+      <div class="popup-row"><span class="lab">☀️ Irradiation solaire</span><span class="val">${d.solar} kWh/m²/j</span></div>
+      <div class="popup-row"><span class="lab">💨 Vitesse du vent</span><span class="val">${d.wind} m/s</span></div>
+      <div class="popup-row"><span class="lab">🌿 Potentiel biomasse</span><span class="val">${d.biomass} TWh/an</span></div>
+    `;
+  }
+
+  function onRegionClick(e) {
+    const name = e.target.feature.properties.name;
+    selectedName = name;
+    updateInfoCard(name);
+  }
+
+  function onEachFeature(feature, layer) {
+    const name = feature.properties.name;
+    layer.bindPopup(buildPopup(name), { maxWidth: 280 });
+    layer.on({
+      mouseover: highlightFeature,
+      mouseout: resetHighlight,
+      click: onRegionClick
+    });
+  }
+
+  geoLayer = L.geoJSON(REGIONS_GEOJSON, {
+    style: styleFeature,
+    onEachFeature: onEachFeature
+  }).addTo(map);
+
+  /* =========================================================
+     INFO CARD
+  ========================================================= */
+  function updateInfoCard(name) {
+    const d = ENERGY[name];
+    const ar = ARABIC[name] || "";
+    document.getElementById('info-title').innerHTML = name;
+    document.getElementById('info-placeholder').style.display = "none";
+    const metricsEl = document.getElementById('info-metrics');
+    metricsEl.style.display = "flex";
+
+    const rows = [
+      { key:"solar",   icon:"☀️", label:"Irradiation solaire", value:d.solar, unit:"kWh/m²/j" },
+      { key:"wind",    icon:"💨", label:"Vitesse du vent",      value:d.wind,  unit:"m/s" },
+      { key:"biomass", icon:"🌿", label:"Potentiel biomasse",   value:d.biomass, unit:"TWh/an" }
+    ];
+
+    metricsEl.innerHTML =
+      `<div style="font-size:0.74rem;color:#94a3b8;margin-bottom:2px;font-weight:600;">${ar}</div>` +
+      rows.map(r => `
+        <div class="metric ${r.key} ${r.key === currentLayer ? 'active-layer' : ''}">
+          <div class="m-icon">${r.icon}</div>
+          <div class="m-text">
+            <div class="m-label">${r.label}</div>
+            <div class="m-value">${r.value} <span>${r.unit}</span></div>
+          </div>
+        </div>
+      `).join('');
+  }
+
+  /* =========================================================
+     LEGEND
+  ========================================================= */
+  function updateLegend() {
+    const L = LAYERS[currentLayer];
+    document.getElementById('legend-icon').textContent = L.icon;
+    document.getElementById('legend-name').textContent = L.name;
+    document.getElementById('legend-unit').textContent = L.unit;
+
+    document.getElementById('legend-scale').innerHTML = buildLegendRows(L);
+  }
+
+  function buildLegendRows(L) {
+    const g = L.grades, c = L.colors;
+    const rows = [];
+    // top: >= last grade
+    rows.push({ color: c[5], text: `≥ ${g[5]}` });
+    rows.push({ color: c[4], text: `${g[4]} – ${g[5]}` });
+    rows.push({ color: c[3], text: `${g[3]} – ${g[4]}` });
+    rows.push({ color: c[2], text: `${g[2]} – ${g[3]}` });
+    rows.push({ color: c[1], text: `${g[1]} – ${g[2]}` });
+    rows.push({ color: c[0], text: `&lt; ${g[1]}` });
+    return rows.map(r => `
+      <div class="legend-row">
+        <span class="legend-swatch" style="background:${r.color}"></span>
+        <span>${r.text}</span>
+      </div>`).join('');
+  }
+
+  /* =========================================================
+     LAYER TOGGLE
+  ========================================================= */
+  function setLayer(layerKey) {
+    currentLayer = layerKey;
+    // restyle map
+    geoLayer.setStyle(styleFeature);
+    // update legend
+    updateLegend();
+    // update buttons
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+      const active = btn.dataset.layer === layerKey;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    // refresh info card highlight if a region is selected
+    if (selectedName) updateInfoCard(selectedName);
+  }
+
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => setLayer(btn.dataset.layer));
+  });
+
+  /* =========================================================
+     INIT
+  ========================================================= */
+  updateLegend();
+  // Fit bounds nicely to the regions
+  try { map.fitBounds(geoLayer.getBounds(), { padding: [20, 20] }); } catch(e) {}
+  </script>
+</body>
+</html>
